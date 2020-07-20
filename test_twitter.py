@@ -1,5 +1,7 @@
 import pytest
 from twitter import Twitter
+from unittest.mock import patch
+import requests
 
 
 class ResponseGetMock:
@@ -31,10 +33,10 @@ def fixture_twitter(backend, username, request, monkeypatch):
     elif request.param == 'backend':
         twitter = Twitter(backend=backend, username=username)
 
-    def monkey_return():
-        return 'test'
-
-    monkeypatch.setattr(twitter, 'get_user_avatar', monkey_return)
+    # def monkey_return():
+    #     return 'test'
+    #
+    # monkeypatch.setattr(twitter, 'get_user_avatar', monkey_return)
     return twitter
 
 
@@ -42,7 +44,9 @@ def test_twitter_initialization(twitter):
     assert twitter
 
 
-def test_tweet_single_message(twitter):
+# @patch.object(Twitter, 'get_user_avatar', return_value='test')
+@patch.object(requests, 'get', return_value=ResponseGetMock())
+def test_tweet_single_message(avatar_mock, twitter):
     twitter.tweet('Test message')
     assert twitter.tweet_messages == ['Test message']
 
@@ -74,8 +78,11 @@ def test_tweet_with_hashtag(twitter, message, expected):
     assert twitter.find_hashtags(message) == expected
 
 
-def test_tweet_with_username(twitter):
+# @patch.object(Twitter, 'get_user_avatar', return_value='test')
+@patch.object(requests, 'get', return_value=ResponseGetMock())
+def test_tweet_with_username(avatar_mock, twitter):
     if not twitter.username:
         pytest.skip()
     twitter.tweet('Test message')
     assert twitter.tweets == [{'message': 'Test message', 'avatar': 'test'}]
+    avatar_mock.assert_called()
