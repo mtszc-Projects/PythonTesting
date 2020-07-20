@@ -1,24 +1,13 @@
 import pytest
 from twitter import Twitter
 from unittest.mock import patch
+from unittest.mock import Mock, MagicMock
 import requests
 
 
 class ResponseGetMock:
     def json(self):
         return {'avatar_url': 'test'}
-
-
-@pytest.fixture(autouse=True)
-def no_requests(monkeypatch):
-    monkeypatch.delattr('requests.sessions.Session.request')
-
-
-@pytest.fixture
-def backend(tmpdir):
-    temp_file = tmpdir.join('test.txt')
-    temp_file.write('')
-    return temp_file
 
 
 @pytest.fixture(params=[None, 'python'])
@@ -84,5 +73,39 @@ def test_tweet_with_username(avatar_mock, twitter):
     if not twitter.username:
         pytest.skip()
     twitter.tweet('Test message')
-    assert twitter.tweets == [{'message': 'Test message', 'avatar': 'test'}]
+    assert twitter.tweets == [{
+        'message': 'Test message',
+        'avatar': 'test',
+        'hashtags': []
+    }]
     avatar_mock.assert_called()
+
+
+@patch.object(requests, 'get', return_value=ResponseGetMock())
+def test_tweet_with_hashtag_mock(avatar_mock, twitter):
+    twitter.find_hashtags = Mock()
+    twitter.find_hashtags.return_value = ['first']
+    twitter.tweet('Test #second')
+    assert twitter.tweets[0]['hashtags'] == ['first']
+    twitter.find_hashtags.assert_called()
+    twitter.find_hashtags.assert_called_with('Test #second')
+
+
+def test_twitter_version(twitter):
+    twitter.version = MagicMock()
+    twitter.version.__eq__.return_value = '2.0'
+    assert twitter.version == '2.0'
+
+
+@patch.object(requests, 'get', return_value=ResponseGetMock())
+def test_twitter_get_all_hashtags(avatar_mock, twitter):
+    twitter.tweet('Test #first')
+    twitter.tweet('Test #first #second')
+    twitter.tweet('Test #third')
+    assert twitter.get_all_hashtags() == {'first', 'second', 'third'}
+
+
+@patch.object(requests, 'get', return_value=ResponseGetMock())
+def test_twitter_get_all_hashtags_not_found(avatar_mock, twitter):
+    twitter.tweet('Test first')
+    assert twitter.get_all_hashtags() == "No hashtags found"

@@ -31,16 +31,29 @@ class Twitter:
         if not self.username:
             return None
         url = urljoin(USERS_API, self.username)
+        # import wdb; wdb.set_trace()
         resp = requests.get(url)
         return resp.json()['avatar_url']
 
     def tweet(self, message):
         if len(message) > 160:
             raise Exception("Message too long.")
-        self.tweets.append({'message': message, 'avatar': self.get_user_avatar()})
+        self.tweets.append({
+            'message': message,
+            'avatar': self.get_user_avatar(),
+            'hashtags': self.find_hashtags(message)
+        })
         if self.backend:
             self.backend.write(json.dumps(self.tweets))
 
     @staticmethod
     def find_hashtags(message):
         return [m.lower() for m in re.findall(r"#(\w+)", message)]  # raw string added to avoid invalid escape sequence
+
+    def get_all_hashtags(self):
+        hashtags = []
+        for message in self.tweets:
+            hashtags.extend(message['hashtags'])
+        if hashtags:
+            return set(hashtags)
+        return "No hashtags found"
